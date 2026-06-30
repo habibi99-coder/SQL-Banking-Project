@@ -8,7 +8,7 @@ CREATE TABLE account_transaction
 	transaction_amount DECIMAL(12,2) NOT NULL,
 	transaction_date DATETIME NOT NULL
 		CONSTRAINT df_transaction_date DEFAULT GETDATE(),
-	transaction_location VARCHAR(20) NULL,
+	transaction_location VARCHAR(20) NOT NULL,
 	source_account_number INT NOT NULL,
 	destination_account_number INT NULL,
 
@@ -28,9 +28,7 @@ CREATE TABLE account_transaction
 
 	CONSTRAINT chk_transaction_location
 		CHECK (
-			transaction_location IN ('ATM', 'APP', 'TELLER')
-			OR transaction_location IS NULL
-	),
+			transaction_location IN ('ATM', 'APP', 'TELLER')),
 
 	CONSTRAINT chk_transfer_destination_required
 		CHECK (
@@ -46,4 +44,3 @@ CREATE TABLE account_transaction
 
 );
 GO
-
