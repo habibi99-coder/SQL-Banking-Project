@@ -1,3 +1,4 @@
+	--PROCEDURE 1: ADDCUSTOMER
 Use SmartBankDB
 GO
 
@@ -87,4 +88,71 @@ SET @CustomerType = UPPER(@CustomerType);
 END;
 GO
 
+	-- PROCEDURE 2: ADDACCOUNT
+USE SmartBankDB;
+GO
+
+DROP PROCEDURE IF EXISTS AddAccount;
+GO
+
+CREATE PROCEDURE AddAccount
+    @AccountNumber INT,
+    @CustomerID INT,
+    @TypeOfAccount VARCHAR(20),
+    @DateOpened DATE
+AS
+BEGIN
+    -- Standardize account type
+    SET @TypeOfAccount = UPPER(@TypeOfAccount);
+
+    -- Check if account number already exists
+    IF EXISTS
+    (
+        SELECT 1
+        FROM account
+        WHERE account_number = @AccountNumber
+    )
+    BEGIN
+        PRINT 'Account creation failed: account number already exists.';
+        RETURN;
+    END;
+
+    -- Check if customer exists
+    IF NOT EXISTS
+    (
+        SELECT 1
+        FROM customer
+        WHERE customer_id = @CustomerID
+    )
+    BEGIN
+        PRINT 'Account creation failed: customer does not exist.';
+        RETURN;
+    END;
+
+    -- Check account type
+    IF @TypeOfAccount NOT IN ('CHECKING', 'SAVINGS', 'BOND')
+    BEGIN
+        PRINT 'Account creation failed: invalid account type.';
+        RETURN;
+    END;
+
+    -- Insert account with default balance of 0.00
+    INSERT INTO account
+    (
+        account_number,
+        type_of_account,
+        date_opened,
+        customer_id
+    )
+    VALUES
+    (
+        @AccountNumber,
+        @TypeOfAccount,
+        @DateOpened,
+        @CustomerID
+    );
+
+    PRINT 'Account created successfully.';
+END;
+GO
 
