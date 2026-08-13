@@ -156,3 +156,161 @@ BEGIN
 END;
 GO
 
+--PROCEDURE 3: ProcessTransaction
+
+USE SmartBankDB;
+GO
+
+-- Remove the existing ProcessTransaction procedure if it already exists.
+-- This allows us to recreate the procedure without getting an error.
+DROP PROCEDURE IF EXISTS ProcessTransaction;
+GO
+
+-- Create a stored procedure named ProcessTransaction.
+-- This procedure will handle deposits, withdrawals, and transfers.
+CREATE PROCEDURE ProcessTransaction
+    @TransactionType VARCHAR(20),
+    @TransactionAmount DECIMAL(12,2),
+    @TransactionLocation VARCHAR(20),
+    @SourceAccountNumber INT,
+    @DestinationAccountNumber INT = NULL
+AS
+BEGIN
+    -- Standardize transaction type and location.
+    -- This allows users to enter values like 'deposit' or 'teller',
+    -- and the procedure will convert them to 'DEPOSIT' and 'TELLER'.
+    SET @TransactionType = UPPER(@TransactionType);
+    SET @TransactionLocation = UPPER(@TransactionLocation);
+
+    -- Validate transaction type.
+    -- Only DEPOSIT, WITHDRAWAL, and TRANSFER are allowed.
+    IF @TransactionType NOT IN ('DEPOSIT', 'WITHDRAWAL', 'TRANSFER')
+    BEGIN
+        PRINT 'Transaction failed: invalid transaction type.';
+        RETURN;
+    END;
+
+    -- Validate transaction amount.
+    -- The amount must be greater than zero.
+    IF @TransactionAmount <= 0
+    BEGIN
+        PRINT 'Transaction failed: amount must be greater than $0.';
+        RETURN;
+    END;
+
+    -- Validate transaction location.
+    -- Only ATM, APP, and TELLER are allowed.
+    IF @TransactionLocation NOT IN ('ATM', 'APP', 'TELLER')
+    BEGIN
+        PRINT 'Transaction failed: invalid transaction location.';
+        RETURN;
+    END;
+
+    -- Validate source account.
+    -- The source account must exist before any transaction can be processed.
+    IF NOT EXISTS
+    (
+        SELECT 1
+        FROM account
+        WHERE account_number = @SourceAccountNumber
+    )
+    BEGIN
+        PRINT 'Transaction failed: source account does not exist.';
+        RETURN;
+    END;
+
+    -- Validate transfer destination requirement.
+    -- A transfer must have a destination account.
+    IF @TransactionType = 'TRANSFER'
+       AND @DestinationAccountNumber IS NULL
+    BEGIN
+        PRINT 'Transaction failed: transfer requires a destination account.';
+        RETURN;
+    END;
+
+    -- Validate deposit and withdrawal destination rule.
+    -- Deposits and withdrawals should not have a destination account.
+    IF @TransactionType IN ('DEPOSIT', 'WITHDRAWAL')
+       AND @DestinationAccountNumber IS NOT NULL
+    BEGIN
+        PRINT 'Transaction failed: deposit or withdrawal should not have a destination account.';
+        RETURN;
+    END;
+
+    -- Validate destination account for transfers.
+    -- If the transaction is a transfer, the destination account must exist.
+    IF @TransactionType = 'TRANSFER'
+       AND NOT EXISTS
+       (
+            SELECT 1
+            FROM account
+            WHERE account_number = @DestinationAccountNumber
+       )
+    BEGIN
+        PRINT 'Transaction failed: destination account does not exist.';
+        RETURN;
+    END;
+
+    -- Validate that source and destination accounts are different.
+    -- A transfer from an account to the same account should not be allowed.
+    IF @TransactionType = 'TRANSFER'
+       AND @SourceAccountNumber = @DestinationAccountNumber
+    BEGIN
+        PRINT 'Transaction failed: source and destination accounts cannot be the same for balance transfer.';
+        RETURN;
+    END;
+
+    -- Validate sufficient balance for withdrawals.
+    -- The withdrawal amount cannot be greater than the current account balance.
+    IF @TransactionType = 'WITHDRAWAL'
+       AND EXISTS
+       (
+            SELECT 1
+            FROM account
+            WHERE account_number = @SourceAccountNumber
+              AND balance < @TransactionAmount
+       )
+    BEGIN
+        PRINT 'Transaction failed: insufficient funds.';
+        RETURN;
+    END;
+
+    -- Validate sufficient balance for transfers.
+    -- The source account must have enough balance before money can be transferred.
+    IF @TransactionType = 'TRANSFER'
+       AND EXISTS
+       (
+            SELECT 1
+            FROM account
+            WHERE account_number = @SourceAccountNumber
+              AND balance < @TransactionAmount
+       )
+    BEGIN
+        PRINT 'Transaction failed: insufficient funds for transfer.';
+        RETURN;
+    END;
+
+    -- Insert the transaction record.
+    -- If all validation checks passed, the transaction is saved in account_transaction.
+    INSERT INTO account_transaction
+    (
+        type_of_transaction,
+        transaction_amount,
+        transaction_location,
+        source_account_number,
+        destination_account_number
+    )
+    VALUES
+    (
+        @TransactionType,
+        @TransactionAmount,
+        @TransactionLocation,
+        @SourceAccountNumber,
+        @DestinationAccountNumber
+    );
+
+    -- Print success message.
+    PRINT 'Transaction recorded successfully.';
+END;
+GO
+
