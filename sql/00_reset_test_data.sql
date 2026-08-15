@@ -1,26 +1,28 @@
-## Testing Note
-
---The `00_reset_test_data.sql` script is intended for development and testing only. In a real banking system, transaction records should not be deleted casually. Corrections should normally be handled through reversal transactions or controlled audit processes.
-
 USE SmartBankDB;
 GO
--- If trg_PreventTransactionChanges exists, disable it before running this reset script.
+
+-- Disable validation trigger so test data can be reset.
 DISABLE TRIGGER trg_PreventTransactionChanges ON account_transaction;
 GO
 
+-- Clear transaction records.
 DELETE FROM account_transaction;
 GO
 
+-- Reset transaction identity.
 DBCC CHECKIDENT ('account_transaction', RESEED, 0);
 GO
 
+-- Reset account balances.
 UPDATE account
 SET balance = 0.00;
 GO
 
+-- Re-enable validation trigger.
 ENABLE TRIGGER trg_PreventTransactionChanges ON account_transaction;
 GO
 
+-- Confirm reset.
 SELECT *
 FROM account_transaction;
 GO
