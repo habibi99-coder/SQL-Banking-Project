@@ -1,6 +1,6 @@
 USE SmartBankDB;
 GO
-
+-- If trg_PreventTransactionChanges exists, disable it before running this reset script.
 DISABLE TRIGGER trg_PreventTransactionChanges ON account_transaction;
 GO
 
